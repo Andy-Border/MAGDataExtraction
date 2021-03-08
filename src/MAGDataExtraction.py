@@ -36,7 +36,6 @@ def mag_extraction(g, label, year_list):
         node_dict['field_of_study'] = neighbors(g, node_dict['paper'], 'has_topic')
         save_pickle(node_dict, f_name)
     g = dgl.node_subgraph(g, node_dict, store_ids=True)
-    print(f'Subset graph finished\n{dgl_graph_to_str(g)}')
 
     # ! Process features
     # Features generated from average paper emb
@@ -57,14 +56,15 @@ def mag_extraction(g, label, year_list):
 
     for t in g.ntypes:
         g.ndata['feat'][t] = torch.tensor(feat_dict[t], dtype=torch.float32)
+    print(f'Subset graph finished\n{dgl_graph_to_str(g)}')
 
     # ! Subset labels
     labels = np.ones(len(g.nodes('paper'))) * -1
     origin_node_id_list = g.ndata['_ID']['paper']
     for i in g.nodes('paper').tolist():
         labels[i] = label['paper'][origin_node_id_list[i]]
-
-    save_pickle(node_dict, LABEL_PATH)
+    assert sum(labels == -1) == 0
+    save_pickle(labels.astype(int), LABEL_PATH)
     dgl.save_graphs(FULL_MAG_PATH, [g])
     print('MAG extraction finished')
     return g
@@ -93,6 +93,6 @@ if __name__ == "__main__":
     g, label = dataset[0]  # graph: dgl graph object, label: torch tensor of shape (num_nodes, num_tasks)
     print(f'Load original MAG graph finished\n{dgl_graph_to_str(g)}')
 
-    year_list = list(range(2010, 2019))
+    year_list = list(range(2010, 2020))
     g = mag_extraction(g, label, year_list)
     mag_subg_by_year(g, year_list)
