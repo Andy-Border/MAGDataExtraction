@@ -12,5 +12,6 @@ Create and processing of MAG dataset
 - Copy mag.zip to data/ogb_raw folder
 - python src/MAGDataExtraction.py
 
-settings are stored in src/utils/settings.py
-default output location is data/ogb_processed
+Settings are stored in src/utils/settings.py.
+
+Default output location is data/ogb_processed
