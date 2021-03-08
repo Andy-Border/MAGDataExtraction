@@ -16,7 +16,12 @@ MAG_META_DICT = {
     'url': 'https://snap.stanford.edu/ogb/data/nodeproppred/mag.zip',
     'version': '2',
 
-    # Modified MAG path infor
+    # Modified MAG path info
     'data_root_path': 'data/',
-    'raw_data_path': 'data/ogb_raw/mag.zip'
+    'raw_data_path': 'data/ogb_raw/mag.zip',
+    'temp_node_dict_file': 'data/ogbn_mag/temp_node_dict_file.pickle'
 }
+
+FULL_MAG_PATH = 'data/ogb_processed/full_graph.bin'
+SUB_MAG_PATH = 'data/ogb_processed/sub_graphs.bin'
+LABEL_PATH = 'data/ogb_processed/labels.pickle'

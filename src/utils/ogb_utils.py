@@ -76,15 +76,19 @@ class DglNodePropPredDataset(object):
 
             if not has_necessary_file:
                 url = self.meta_info['url']
-                path = self.raw_data_path
-                extract_zip(path, self.data_root_path)
-                os.unlink(path)
-                # delete folder if there exists
-                try:
-                    shutil.rmtree(self.root)
-                except:
-                    pass
-                shutil.move(osp.join(self.original_root, self.download_name), self.root)
+                if decide_download(url):
+                    path = download_url(url, self.original_root)
+                    extract_zip(path, self.original_root)
+                    os.unlink(path)
+                    # delete folder if there exists
+                    try:
+                        shutil.rmtree(self.root)
+                    except:
+                        pass
+                    shutil.move(osp.join(self.original_root, self.download_name), self.root)
+                else:
+                    print('Stop download.')
+                    exit(-1)
 
             raw_dir = osp.join(self.root, 'raw')
 
