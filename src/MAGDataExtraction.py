@@ -96,12 +96,7 @@ if __name__ == "__main__":
     g, label = dataset[0]  # graph: dgl graph object, label: th tensor of shape (num_nodes, num_tasks)
     print(f'Load original MAG graph finished\n{dgl_graph_to_str(g)}')
 
-    author_degree_threshold = 0
-    author_degree_threshold = 10
-    author_degree_threshold = 20
-    author_degree_threshold = 100
     author_degree_threshold = 200
-    author_degree_threshold = 50
 
     year_list = list(range(2010, 2020))
     g = mag_extraction(g, label, year_list, author_degree_threshold)
