@@ -7,34 +7,36 @@ from utils.settings import *
 from utils.dgl_utils import *
 from utils.util_funcs import *
 import dgl
-import torch
+import torch as th
 import numpy as np
 from tqdm import trange
 
 
-def mag_extraction(g, label, year_list):
+def mag_extraction(g, label, year_list, author_degree_threshold=0):
     '''
     Extract authors that publish at least one paper in each year
     '''
     # ! Find candidate authors by year
     # init to all authors, intersect with each year's author to get authors that publish in each and every year.
-    author_subset = set(g.nodes('paper').tolist())
+    all_authors = g.nodes('author')
+    author_subset = set(all_authors.tolist())
+    # subset authors with threshold
+    if author_degree_threshold > 0:
+        authors_above_thresholds = all_authors[g.out_degrees(all_authors, etype='writes') > author_degree_threshold]
+        author_subset.intersection_update(set(authors_above_thresholds.tolist()))
+
     for year in year_list:
         paper_this_year = g.filter_nodes(lambda nodes: (nodes.data['year'] == year).squeeze(1), ntype='paper')
         author_this_year = set(neighbors(g, paper_this_year, 'writes', 'dst'))
         author_subset.intersection_update(author_this_year)
 
     # ! Subsetting nodes related to authors
-    f_name = MAG_META_DICT['temp_node_dict_file']
-    if os.path.isfile(f_name):
-        node_dict = load_pickle(f_name)
-    else:
-        author_subset = list(author_subset)
-        node_dict = {'author': list(author_subset)}
-        node_dict['paper'] = neighbors(g, author_subset, 'writes')
-        node_dict['institution'] = neighbors(g, author_subset, 'affiliated_with')
-        node_dict['field_of_study'] = neighbors(g, node_dict['paper'], 'has_topic')
-        save_pickle(node_dict, f_name)
+    author_subset = list(author_subset)
+    node_dict = {'author': list(author_subset)}
+    node_dict['paper'] = neighbors(g, author_subset, 'writes')
+    node_dict['institution'] = neighbors(g, author_subset, 'affiliated_with')
+    node_dict['field_of_study'] = neighbors(g, node_dict['paper'], 'has_topic')
+
     g = dgl.node_subgraph(g, node_dict, store_ids=True)
 
     # ! Process features
@@ -55,7 +57,7 @@ def mag_extraction(g, label, year_list):
         feat_dict['field_of_study'][i, :] = p_feat[neighbors(g, i, 'has_topic', 'dst'), :].mean(axis=0)
 
     for t in g.ntypes:
-        g.ndata['feat'][t] = torch.tensor(feat_dict[t], dtype=torch.float32)
+        g.ndata['feat'][t] = th.tensor(feat_dict[t], dtype=th.float32)
     print(f'Subset graph finished\n{dgl_graph_to_str(g)}')
 
     # ! Subset labels
@@ -82,7 +84,8 @@ def mag_subg_by_year(g, year_list):
         glist.append(dgl.node_subgraph(g, {'author': author_this_year, 'field_of_study': field_this_year,
                                            'institution': institution_this_year, 'paper': paper_this_year}))
     dgl.save_graphs(SUB_MAG_PATH, glist)
-    print('Subgraphs by each year saved')
+    print('Subgraphs by each year saved, the number of total nodes in each subgraph are as follows:')
+    print([len(g_) for g_ in glist])
 
 
 if __name__ == "__main__":
@@ -90,9 +93,17 @@ if __name__ == "__main__":
 
     split_idx = dataset.get_idx_split()
     train_idx, valid_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
-    g, label = dataset[0]  # graph: dgl graph object, label: torch tensor of shape (num_nodes, num_tasks)
+    g, label = dataset[0]  # graph: dgl graph object, label: th tensor of shape (num_nodes, num_tasks)
     print(f'Load original MAG graph finished\n{dgl_graph_to_str(g)}')
 
+    author_degree_threshold = 0
+    author_degree_threshold = 10
+    author_degree_threshold = 20
+    author_degree_threshold = 100
+    author_degree_threshold = 200
+    author_degree_threshold = 50
+
     year_list = list(range(2010, 2020))
-    g = mag_extraction(g, label, year_list)
+    g = mag_extraction(g, label, year_list, author_degree_threshold)
     mag_subg_by_year(g, year_list)
+    print(f'Subset MAG subgraph with threshold {author_degree_threshold} finished')

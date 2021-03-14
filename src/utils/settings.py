@@ -19,7 +19,6 @@ MAG_META_DICT = {
     # Modified MAG path info
     'data_root_path': 'data/',
     'raw_data_path': 'data/ogb_raw/mag.zip',
-    'temp_node_dict_file': 'data/ogbn_mag/temp_node_dict_file.pickle'
 }
 
 FULL_MAG_PATH = 'data/ogb_processed/full_graph.bin'
