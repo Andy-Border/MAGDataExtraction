@@ -46,7 +46,6 @@ def mag_extraction(g, label, year_list, author_degree_threshold=0):
     feat_dict['paper'] = p_feat
 
     for i in trange(len(g.nodes('author')), desc='Author feature processing'):
-        # note that since the
         feat_dict['author'][i, :] = p_feat[neighbors(g, i, 'writes'), :].mean(axis=0)
 
     for i in trange(len(g.nodes('institution')), desc='Institution feature processing'):
@@ -56,8 +55,7 @@ def mag_extraction(g, label, year_list, author_degree_threshold=0):
     for i in trange(len(g.nodes('field_of_study')), desc='Field feature processing'):
         feat_dict['field_of_study'][i, :] = p_feat[neighbors(g, i, 'has_topic', 'dst'), :].mean(axis=0)
 
-    for t in g.ntypes:
-        g.ndata['feat'][t] = th.tensor(feat_dict[t], dtype=th.float32)
+    g.ndata['feat'] = {t: th.tensor(feat_dict[t], dtype=th.float32) for t in g.ntypes}
     print(f'Subset graph finished\n{dgl_graph_to_str(g)}')
 
     # ! Subset labels
