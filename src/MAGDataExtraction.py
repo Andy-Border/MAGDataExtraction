@@ -12,7 +12,27 @@ import numpy as np
 from tqdm import trange
 
 
-def mag_extraction(g, label, year_list, author_degree_threshold=0):
+def mag_feat_process(g):
+    # Features generated from average paper emb
+    p_feat = g.ndata['feat']['paper'].numpy()
+    feat_dict = {t: np.zeros((len(g.nodes(t)), p_feat.shape[1])) for t in g.ntypes}
+    feat_dict['paper'] = p_feat
+
+    for i in trange(len(g.nodes('author')), desc='Author feature processing'):
+        feat_dict['author'][i, :] = p_feat[neighbors(g, i, 'writes'), :].mean(axis=0)
+
+    for i in trange(len(g.nodes('institution')), desc='Institution feature processing'):
+        auth_neighbors = neighbors(g, i, 'affiliated_with', 'dst')  # I -> A, A -> P
+        feat_dict['institution'][i, :] = p_feat[neighbors(g, auth_neighbors, 'writes'), :].mean(axis=0)
+
+    for i in trange(len(g.nodes('field_of_study')), desc='Field feature processing'):
+        feat_dict['field_of_study'][i, :] = p_feat[neighbors(g, i, 'has_topic', 'dst'), :].mean(axis=0)
+
+    g.ndata['feat'] = {t: th.tensor(feat_dict[t], dtype=th.float32) for t in g.ntypes}
+    return g
+
+
+def mag_extraction(g, label, year_list, author_degree_threshold=0, process_feature=False):
     '''
     Extract authors that publish at least one paper in each year
     '''
@@ -40,22 +60,8 @@ def mag_extraction(g, label, year_list, author_degree_threshold=0):
     g = dgl.node_subgraph(g, node_dict, store_ids=True)
 
     # ! Process features
-    # Features generated from average paper emb
-    p_feat = g.ndata['feat']['paper'].numpy()
-    feat_dict = {t: np.zeros((len(g.nodes(t)), p_feat.shape[1])) for t in g.ntypes}
-    feat_dict['paper'] = p_feat
-
-    for i in trange(len(g.nodes('author')), desc='Author feature processing'):
-        feat_dict['author'][i, :] = p_feat[neighbors(g, i, 'writes'), :].mean(axis=0)
-
-    for i in trange(len(g.nodes('institution')), desc='Institution feature processing'):
-        auth_neighbors = neighbors(g, i, 'affiliated_with', 'dst')  # I -> A, A -> P
-        feat_dict['institution'][i, :] = p_feat[neighbors(g, auth_neighbors, 'writes'), :].mean(axis=0)
-
-    for i in trange(len(g.nodes('field_of_study')), desc='Field feature processing'):
-        feat_dict['field_of_study'][i, :] = p_feat[neighbors(g, i, 'has_topic', 'dst'), :].mean(axis=0)
-
-    g.ndata['feat'] = {t: th.tensor(feat_dict[t], dtype=th.float32) for t in g.ntypes}
+    if process_feature:
+        g = mag_feat_process(g)
     print(f'Subset graph finished\n{dgl_graph_to_str(g)}')
 
     # ! Subset labels
@@ -79,8 +85,9 @@ def mag_subg_by_year(g, year_list):
         author_this_year = neighbors(g, paper_this_year, 'writes', 'dst')
         institution_this_year = neighbors(g, author_this_year, 'affiliated_with')
         assert author_this_year == list(g.nodes('author'))
-        glist.append(dgl.node_subgraph(g, {'author': author_this_year, 'field_of_study': field_this_year,
-                                           'institution': institution_this_year, 'paper': paper_this_year}))
+        glist.append(mag_feat_process(
+            dgl.node_subgraph(g, {'author': author_this_year, 'field_of_study': field_this_year,
+                                  'institution': institution_this_year, 'paper': paper_this_year})))
     dgl.save_graphs(SUB_MAG_PATH, glist)
     print('Subgraphs by each year saved, the number of total nodes in each subgraph are as follows:')
     print([len(g_) for g_ in glist])
